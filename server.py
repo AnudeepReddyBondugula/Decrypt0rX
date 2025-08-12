@@ -124,7 +124,7 @@ class MITM_Server:
                     f"Trying to connect to the remote server {target_host} on {target_port}"
                 )
                 server_socket = socket.create_connection((target_host, target_port))
-                logger.debug("HTTP/1.1 200 Connection Established")
+                logger.info("Connection Established (200) with the server")
                 client_socket.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             except Exception as e:
                 logger.error(f"❌ Failed to connect to target: {e}", exc_info=True)
@@ -168,18 +168,20 @@ class MITM_Server:
             )
             client_socket.close()
             server_socket.close()
+            logger.info("[-] Session Terminated")
 
     # Relay data
     def relay(self, src, dst):
         try:
             while True:
                 data = src.recv(self.BUFFER_SIZE)
+                # print(data.decode(errors="replace"))
                 if not data:
                     logger.debug(f"Connection Terminatted by {src}")
                     break
                 dst.sendall(data)
-        except:
-            pass
+        except Exception:
+            logger.exception("Unknown Error in data relay")
         finally:
             logger.debug(f"Closing the sockets {src} {dst}")
             src.close()
