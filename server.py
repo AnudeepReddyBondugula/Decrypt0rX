@@ -127,28 +127,47 @@ class MITM_Server:
                 logger.debug("HTTP/1.1 200 Connection Established")
                 client_socket.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             except Exception as e:
-                logger.error(f"❌ Failed to connect to target: {e}")
+                logger.error(f"❌ Failed to connect to target: {e}", exc_info=True)
                 client_socket.send(b"HTTP/1.1 502 Bad Gateway\r\n\r\n")
                 return
 
             # Bidirectional tunnel
-            #! There is a bug here, we are creating the threads but not waiting for them to complete which is triggering the finally block which is closing the client_socket, temporarily I have added a sleep of 10 seconds but need a permanent solution
             logger.debug("Creating threads")
-            threading.Thread(
-                target=self.relay, args=(client_socket, server_socket)
-            ).start()
-            threading.Thread(
-                target=self.relay, args=(server_socket, client_socket)
-            ).start()
+            thread_client_to_server = threading.Thread(
+                target=self.relay,
+                args=(client_socket, server_socket),
+                name=f"{threading.current_thread().name}-relay_client-server",
+            )
+            thread_server_to_client = threading.Thread(
+                target=self.relay,
+                args=(server_socket, client_socket),
+                name=f"{threading.current_thread().name}-relay_server-client",
+            )
+
+            logger.debug("Starting the relay threads bi-directional")
+            logger.debug(thread_client_to_server)
+            logger.debug(thread_server_to_client)
+
+            thread_server_to_client.start()
+            thread_client_to_server.start()
+
+            logger.debug("Bi-directional relay threads started")
 
         except Exception:
             client_socket.send(b"HTTP/1.1 500 Internal Server Error\r\n\r\n")
-            logger.error(f"Unknown Error :(")
+            logger.error(f"Unknown Error :(", exc_info=True)
 
         finally:
-            logger.debug("Closing Client socket")
-            time.sleep(10)
+            logger.debug("Waiting for the relay threads to stop")
+
+            thread_client_to_server.join()
+            thread_server_to_client.join()
+
+            logger.debug(
+                "Closing both client and server sockets, if they are not yet closed"
+            )
             client_socket.close()
+            server_socket.close()
 
     # Relay data
     def relay(self, src, dst):
@@ -156,11 +175,13 @@ class MITM_Server:
             while True:
                 data = src.recv(self.BUFFER_SIZE)
                 if not data:
+                    logger.debug(f"Connection Terminatted by {src}")
                     break
                 dst.sendall(data)
         except:
             pass
         finally:
+            logger.debug(f"Closing the sockets {src} {dst}")
             src.close()
             dst.close()
 
