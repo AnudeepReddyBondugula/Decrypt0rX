@@ -1,0 +1,22 @@
+[project]
+name = "decrypt0rx-proxy"
+version = "0.1.0"
+description = "Decrypt0rX HTTPS intercepting proxy (data plane)"
+requires-python = ">=3.11"
+dependencies = [
+    "decrypt0rx-core",
+    "redis>=5.0.0",
+    "boto3>=1.34.0",
+    "prometheus-client>=0.20.0",
+    "brotli>=1.1.0",
+]
+
+[project.scripts]
+decrypt0rx-proxy = "decrypt0rx_proxy.main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["decrypt0rx_proxy*"]
