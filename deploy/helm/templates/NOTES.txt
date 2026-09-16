@@ -1,0 +1,33 @@
+Decrypt0rX {{ .Chart.AppVersion }} installed as {{ .Release.Name }}.
+
+1. Point clients at the proxy:
+
+{{- if eq .Values.proxy.service.type "LoadBalancer" }}
+   kubectl get svc {{ include "decrypt0rx.fullname" . }}-proxy -w
+   export HTTPS_PROXY=http://<EXTERNAL-IP>:{{ .Values.proxy.port }}
+{{- else }}
+   kubectl port-forward svc/{{ include "decrypt0rx.fullname" . }}-proxy {{ .Values.proxy.port }}:{{ .Values.proxy.port }}
+   export HTTPS_PROXY=http://localhost:{{ .Values.proxy.port }}
+{{- end }}
+
+2. Open the console:
+
+{{- if .Values.ingress.enabled }}
+   http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}
+{{- else }}
+   kubectl port-forward svc/{{ include "decrypt0rx.fullname" . }}-web {{ .Values.web.port }}:{{ .Values.web.port }}
+{{- end }}
+
+3. Sign in as {{ .Values.bootstrap.adminEmail }}.
+{{- if not .Values.bootstrap.adminPassword }}
+   The generated password is printed once in the API log:
+   kubectl logs -l app.kubernetes.io/component=api --tail=200 | grep -A4 "Bootstrap admin"
+{{- end }}
+
+4. Generate a CA in the console, then install it on every client that should be
+   intercepted. Until a client trusts it, intercepted HTTPS requests fail with a
+   certificate error - that is the interception working, not a bug.
+
+WARNING: this deployment can read the plaintext of HTTPS traffic from clients
+that trust its CA. Restrict console access and only intercept devices you are
+authorised to monitor.

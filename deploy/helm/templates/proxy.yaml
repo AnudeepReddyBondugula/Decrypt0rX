@@ -1,0 +1,158 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "decrypt0rx.fullname" . }}-proxy
+  labels:
+    {{- include "decrypt0rx.labels" . | nindent 4 }}
+    app.kubernetes.io/component: proxy
+spec:
+  {{- if not .Values.proxy.autoscaling.enabled }}
+  replicas: {{ .Values.proxy.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "decrypt0rx.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: proxy
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "decrypt0rx.labels" . | nindent 8 }}
+        app.kubernetes.io/component: proxy
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.proxy.metricsPort | quote }}
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      # Established tunnels finish instead of being severed on a rollout.
+      terminationGracePeriodSeconds: {{ .Values.proxy.terminationGracePeriodSeconds }}
+      containers:
+        - name: proxy
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}-proxy:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - { name: proxy, containerPort: {{ .Values.proxy.port }} }
+            - { name: health, containerPort: {{ .Values.proxy.healthPort }} }
+            - { name: metrics, containerPort: {{ .Values.proxy.metricsPort }} }
+          env:
+            {{- include "decrypt0rx.commonEnv" . | nindent 12 }}
+            - name: DECRYPT0RX_NODE_ID
+              valueFrom:
+                fieldRef: { fieldPath: metadata.name }
+            - name: DECRYPT0RX_LISTEN_PORT
+              value: {{ .Values.proxy.port | quote }}
+            - name: DECRYPT0RX_METRICS_PORT
+              value: {{ .Values.proxy.metricsPort | quote }}
+            - name: DECRYPT0RX_HEALTH_PORT
+              value: {{ .Values.proxy.healthPort | quote }}
+            - name: DECRYPT0RX_DEFAULT_ACTION
+              value: {{ .Values.proxy.defaultAction | quote }}
+            - name: DECRYPT0RX_VERIFY_UPSTREAM
+              value: {{ .Values.proxy.verifyUpstream | quote }}
+            - name: DECRYPT0RX_MAX_CONNECTIONS
+              value: {{ .Values.proxy.maxConnections | quote }}
+            - name: DECRYPT0RX_RATE_LIMIT_ENABLED
+              value: {{ .Values.proxy.rateLimit.enabled | quote }}
+            - name: DECRYPT0RX_RATE_LIMIT_PER_MINUTE
+              value: {{ .Values.proxy.rateLimit.perMinute | quote }}
+          livenessProbe:
+            httpGet: { path: /healthz, port: health }
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          readinessProbe:
+            # /readyz stays 503 until the policy snapshot and CA are loaded, so
+            # a starting pod never intercepts with an empty rule set.
+            httpGet: { path: /readyz, port: health }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources: {{- toYaml .Values.proxy.resources | nindent 12 }}
+      {{- with .Values.proxy.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.proxy.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.proxy.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "decrypt0rx.fullname" . }}-proxy
+  labels:
+    {{- include "decrypt0rx.labels" . | nindent 4 }}
+    app.kubernetes.io/component: proxy
+  {{- with .Values.proxy.service.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.proxy.service.type }}
+  sessionAffinity: {{ .Values.proxy.service.sessionAffinity }}
+  selector:
+    app.kubernetes.io/name: {{ include "decrypt0rx.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: proxy
+  ports:
+    - { name: proxy, port: {{ .Values.proxy.port }}, targetPort: proxy }
+    - { name: metrics, port: {{ .Values.proxy.metricsPort }}, targetPort: metrics }
+{{- if .Values.proxy.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "decrypt0rx.fullname" . }}-proxy
+  labels:
+    {{- include "decrypt0rx.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "decrypt0rx.fullname" . }}-proxy
+  minReplicas: {{ .Values.proxy.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.proxy.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: {{ .Values.proxy.autoscaling.targetCPUUtilizationPercentage }} }
+    - type: Resource
+      resource:
+        name: memory
+        target: { type: Utilization, averageUtilization: {{ .Values.proxy.autoscaling.targetMemoryUtilizationPercentage }} }
+  behavior:
+    scaleDown:
+      # Tunnels are long-lived; shedding replicas quickly would cut them off.
+      stabilizationWindowSeconds: 300
+      policies:
+        - { type: Pods, value: 1, periodSeconds: 120 }
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - { type: Percent, value: 100, periodSeconds: 30 }
+{{- end }}
+{{- if .Values.proxy.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "decrypt0rx.fullname" . }}-proxy
+  labels:
+    {{- include "decrypt0rx.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.proxy.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "decrypt0rx.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: proxy
+{{- end }}

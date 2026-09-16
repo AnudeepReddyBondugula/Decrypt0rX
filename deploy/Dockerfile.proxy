@@ -1,0 +1,47 @@
+# Data plane: the HTTPS intercepting proxy.
+# Build context is the repository root so the shared core package is available.
+FROM python:3.12-slim AS builder
+
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+COPY services/proxy/requirements.txt ./requirements.txt
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install -r requirements.txt
+
+COPY packages/core /build/packages/core
+COPY services/proxy /build/services/proxy
+RUN /opt/venv/bin/pip install --no-deps /build/packages/core /build/services/proxy
+
+
+FROM python:3.12-slim AS runtime
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DECRYPT0RX_LISTEN_HOST=0.0.0.0 \
+    DECRYPT0RX_LISTEN_PORT=8080
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --create-home --uid 10001 decrypt0rx
+
+COPY --from=builder /opt/venv /opt/venv
+
+# The proxy opens many sockets per client; the default 1024 runs out fast.
+RUN mkdir -p /var/lib/decrypt0rx && chown decrypt0rx /var/lib/decrypt0rx
+
+USER decrypt0rx
+WORKDIR /home/decrypt0rx
+
+EXPOSE 8080 8081 9090
+
+HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8081/healthz || exit 1
+
+ENTRYPOINT ["python", "-m", "decrypt0rx_proxy"]
