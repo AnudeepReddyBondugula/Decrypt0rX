@@ -152,9 +152,15 @@ async def run() -> None:
             await ca.load(session_factory)
             ready.set()
             break
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("waiting for database (%s/30): %s", attempt, exc)
+        except SQLAlchemyError as exc:
+            logger.warning("waiting for the database (%s/30): %s", attempt, exc)
             await asyncio.sleep(2)
+        except Exception:  # noqa: BLE001
+            # Anything else - a bad master key, an unreadable CA - will not fix
+            # itself by waiting, and starting anyway would tunnel traffic that
+            # policy says to intercept.
+            logger.critical("cannot load the control-plane state", exc_info=True)
+            raise SystemExit(1) from None
     else:
         raise SystemExit("database never became reachable; refusing to start")
 

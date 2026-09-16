@@ -77,7 +77,9 @@ class CertificateAuthorityProvider:
         if ca.fingerprint_sha256 == self._fingerprint:
             return
 
-        key_pem = self._box.decrypt(ca.key_encrypted, aad=ca.fingerprint_sha256.encode())
+        key_pem = self._box.decrypt(
+            ca.key_encrypted, aad=ca.fingerprint_sha256.encode()
+        ).decode()
         forge = CertificateForge(
             ca.cert_pem,
             key_pem,
