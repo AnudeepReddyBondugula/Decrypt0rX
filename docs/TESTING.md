@@ -1,7 +1,7 @@
 # Testing
 
 ```bash
-pytest                              # everything (68 tests, ~15s)
+pytest                              # everything (71 tests, ~15s)
 pytest packages/core/tests -q       # unit tests, no services needed
 pytest services/proxy/tests -q      # interception, real sockets
 pytest services/api/tests -q        # control plane, needs Postgres
@@ -55,6 +55,15 @@ green SQLite suite would be worthless.
 
 `conftest.py` truncates every table and re-seeds before each test, then drives
 the ASGI app through `httpx`.
+
+`test_policy_parity.py` is the odd one out: it imports the **proxy's** real
+`PolicyEngine`, loads it from the same database the API just wrote to, and
+asserts both implementations reach the same verdict for a matrix of hosts,
+ports and client addresses. The dry-run tester in the console is a second
+implementation of the matcher, and a wrong answer there is worse than no
+answer — an operator reads "bypass" and believes a host is not being decrypted
+when it is. The file also includes a test proving the comparison can fail, so
+the guard cannot silently become a no-op.
 
 ```bash
 export DECRYPT0RX_TEST_DATABASE_URL="postgresql+asyncpg://postgres@127.0.0.1:5432/decrypt0rx_test"
@@ -125,8 +134,6 @@ CI runs exactly this, plus a Docker build of all three images, against Postgres
 Worth knowing, and all reasonable first contributions:
 
 - **No web tests.** The console is typechecked and build-verified only.
-- **No parity test** between `PolicyEngine.evaluate` and the API's `test_policy`
-  dry-run. They must agree; nothing enforces it.
 - **The Helm chart is unlinted** and the Docker images were never built in the
   environment where they were written — CI covers the images now, but the chart
   has no `helm lint` step.

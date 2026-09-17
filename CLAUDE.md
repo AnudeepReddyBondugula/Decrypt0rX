@@ -43,7 +43,7 @@ Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) before changing anything in
 ## Commands
 
 ```bash
-pytest                                    # all 68 tests
+pytest                                    # all 71 tests
 pytest services/proxy/tests -q            # interception end-to-end
 cd web && npm run typecheck && npm run build
 docker compose up -d --build

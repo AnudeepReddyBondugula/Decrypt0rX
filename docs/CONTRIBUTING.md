@@ -134,7 +134,6 @@ Privately to the repository owner, not as a public issue. See
 
 From the gaps listed in [TESTING.md](TESTING.md):
 
-- A parity test pinning `PolicyEngine.evaluate` to the API's dry-run evaluator
 - `helm lint` in CI
 - Component tests for the console
 - Alembic migrations, so `auto_create_schema` can be turned off for rolling

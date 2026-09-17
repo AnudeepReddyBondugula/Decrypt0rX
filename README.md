@@ -124,7 +124,7 @@ pip install -e packages/core -r services/proxy/requirements.txt \
             -r services/api/requirements.txt pytest pytest-asyncio httpx
 pip install -e services/proxy
 
-pytest                          # 61 tests: core, proxy end-to-end, API
+pytest                          # 71 tests: core, proxy end-to-end, API
 cd web && npm install && npm run dev
 ```
 

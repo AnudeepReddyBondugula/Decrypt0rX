@@ -136,6 +136,6 @@ browser holds the token and calls the API directly.
   is identical; the alias documents the intent at the call site.
 - **The API re-implements policy matching in `test_policy`.** It must mirror
   `PolicyEngine.evaluate` exactly, or the dry-run tester will lie to operators.
-  No test currently pins the two implementations together, so if you change one,
-  changing the other is on you. Adding that parity test would be a genuinely
-  useful first contribution.
+  `services/api/tests/test_policy_parity.py` runs both implementations over the
+  same rules and asserts they agree, so drift fails the build — but if you add a
+  matching condition, add a case there too.
