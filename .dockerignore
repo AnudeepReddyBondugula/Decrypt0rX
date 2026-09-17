@@ -1,0 +1,11 @@
+.git
+.venv
+**/node_modules
+**/.next
+**/__pycache__
+**/*.egg-info
+**/.pytest_cache
+legacy
+docs
+deploy/helm
+*.md

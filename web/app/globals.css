@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-950: #07090d;
+  --color-ink-900: #0b0f16;
+  --color-ink-850: #10151f;
+  --color-ink-800: #151b27;
+  --color-ink-700: #1e2634;
+  --color-ink-600: #2b3648;
+  --color-ink-400: #64748b;
+  --color-ink-300: #94a3b8;
+  --color-ink-200: #cbd5e1;
+  --color-ink-100: #e2e8f0;
+
+  --color-accent: #38bdf8;
+  --color-accent-dim: #0ea5e9;
+  --color-good: #34d399;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+  --color-violet: #a78bfa;
+
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: var(--color-ink-950);
+  color: var(--color-ink-100);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-ink-900);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-700);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-600);
+}
+
+@utility card {
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-ink-700);
+  background: color-mix(in srgb, var(--color-ink-900) 85%, transparent);
+}
+
+@utility field {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-ink-700);
+  background: var(--color-ink-950);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-ink-100);
+  outline: none;
+}
+
+.field:focus {
+  border-color: var(--color-accent-dim);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+.field::placeholder {
+  color: var(--color-ink-400);
+}
+
+@keyframes rowIn {
+  from {
+    background-color: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.row-in {
+  animation: rowIn 1.2s ease-out;
+}

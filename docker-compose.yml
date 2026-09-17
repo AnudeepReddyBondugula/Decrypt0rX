@@ -1,0 +1,128 @@
+# Single-host deployment. Bring it up with:
+#   cp deploy/.env.example .env && ./deploy/generate-secrets.sh >> .env
+#   docker compose up -d --build
+#
+# Then open http://localhost:3000 and read the API logs for the bootstrap
+# password: docker compose logs api | grep -A4 "Bootstrap admin"
+
+name: decrypt0rx
+
+x-common-env: &common-env
+  DECRYPT0RX_DATABASE_URL: postgresql+asyncpg://decrypt0rx:${POSTGRES_PASSWORD:-decrypt0rx}@postgres:5432/decrypt0rx
+  DECRYPT0RX_REDIS_URL: redis://redis:6379/0
+  DECRYPT0RX_MASTER_KEY: ${DECRYPT0RX_MASTER_KEY:?set DECRYPT0RX_MASTER_KEY in .env}
+  DECRYPT0RX_S3_ENDPOINT_URL: http://minio:9000
+  DECRYPT0RX_S3_BUCKET: decrypt0rx-bodies
+  DECRYPT0RX_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-decrypt0rx}
+  DECRYPT0RX_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-decrypt0rx-secret}
+  DECRYPT0RX_LOG_LEVEL: ${DECRYPT0RX_LOG_LEVEL:-INFO}
+  DECRYPT0RX_LOG_FORMAT: ${DECRYPT0RX_LOG_FORMAT:-console}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: decrypt0rx
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-decrypt0rx}
+      POSTGRES_DB: decrypt0rx
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U decrypt0rx"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Not published by default: nothing outside the compose network needs it.
+    expose:
+      - "5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "no", "--save", ""]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    expose:
+      - "6379"
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-decrypt0rx}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-decrypt0rx-secret}
+    volumes:
+      - minio-data:/data
+    ports:
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.api
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      DECRYPT0RX_JWT_SECRET: ${DECRYPT0RX_JWT_SECRET:?set DECRYPT0RX_JWT_SECRET in .env}
+      DECRYPT0RX_BOOTSTRAP_ADMIN_EMAIL: ${DECRYPT0RX_BOOTSTRAP_ADMIN_EMAIL:-admin@decrypt0rx.io}
+      DECRYPT0RX_BOOTSTRAP_ADMIN_PASSWORD: ${DECRYPT0RX_BOOTSTRAP_ADMIN_PASSWORD:-}
+      DECRYPT0RX_CORS_ORIGINS: ${DECRYPT0RX_CORS_ORIGINS:-http://localhost:3000}
+      DECRYPT0RX_FLOW_RETENTION_DAYS: ${DECRYPT0RX_FLOW_RETENTION_DAYS:-14}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_started }
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+  proxy:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.proxy
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      DECRYPT0RX_NODE_ID: ${DECRYPT0RX_NODE_ID:-proxy-1}
+      DECRYPT0RX_VERIFY_UPSTREAM: ${DECRYPT0RX_VERIFY_UPSTREAM:-true}
+      DECRYPT0RX_DEFAULT_ACTION: ${DECRYPT0RX_DEFAULT_ACTION:-intercept}
+      DECRYPT0RX_RATE_LIMIT_ENABLED: ${DECRYPT0RX_RATE_LIMIT_ENABLED:-false}
+      DECRYPT0RX_RATE_LIMIT_PER_MINUTE: ${DECRYPT0RX_RATE_LIMIT_PER_MINUTE:-1200}
+      DECRYPT0RX_MAX_CONNECTIONS: ${DECRYPT0RX_MAX_CONNECTIONS:-2000}
+    depends_on:
+      postgres: { condition: service_healthy }
+      api: { condition: service_started }
+    ports:
+      - "${PROXY_PORT:-8080}:8080"
+      - "${PROXY_METRICS_PORT:-9090}:9090"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.web
+      args:
+        # Inlined into the browser bundle at build time, so it must be the URL
+        # a BROWSER can reach - not the compose-internal hostname.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+volumes:
+  postgres-data:
+  minio-data:

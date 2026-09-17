@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "decrypt0rx.fullname" . }}-api
+  labels:
+    {{- include "decrypt0rx.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  {{- if not .Values.api.autoscaling.enabled }}
+  replicas: {{ .Values.api.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "decrypt0rx.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "decrypt0rx.labels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: api
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}-api:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - { name: http, containerPort: {{ .Values.api.port }} }
+          env:
+            {{- include "decrypt0rx.commonEnv" . | nindent 12 }}
+            - name: DECRYPT0RX_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "decrypt0rx.secretName" . }}
+                  key: jwtSecret
+            - name: DECRYPT0RX_BOOTSTRAP_ADMIN_EMAIL
+              value: {{ .Values.bootstrap.adminEmail | quote }}
+            - name: DECRYPT0RX_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "decrypt0rx.secretName" . }}
+                  key: bootstrapAdminPassword
+                  optional: true
+            - name: DECRYPT0RX_CORS_ORIGINS
+              value: {{ default (printf "https://%s" .Values.ingress.host) .Values.api.corsOrigins | quote }}
+            - name: DECRYPT0RX_FLOW_RETENTION_DAYS
+              value: {{ .Values.api.flowRetentionDays | quote }}
+            - name: DECRYPT0RX_AUTO_CREATE_SCHEMA
+              value: {{ .Values.api.autoCreateSchema | quote }}
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources: {{- toYaml .Values.api.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "decrypt0rx.fullname" . }}-api
+  labels:
+    {{- include "decrypt0rx.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: {{ .Values.api.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "decrypt0rx.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: api
+  ports:
+    - { name: http, port: {{ .Values.api.port }}, targetPort: http }
+{{- if .Values.api.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "decrypt0rx.fullname" . }}-api
+  labels:
+    {{- include "decrypt0rx.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "decrypt0rx.fullname" . }}-api
+  minReplicas: {{ .Values.api.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: {{ .Values.api.autoscaling.targetCPUUtilizationPercentage }} }
+{{- end }}

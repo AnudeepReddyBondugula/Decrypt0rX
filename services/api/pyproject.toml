@@ -1,0 +1,13 @@
+[project]
+name = "decrypt0rx-api"
+version = "0.1.0"
+description = "Decrypt0rX control plane (REST + WebSocket API)"
+requires-python = ">=3.11"
+dependencies = ["decrypt0rx-core", "fastapi", "uvicorn", "PyJWT", "argon2-cffi", "redis", "boto3"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
