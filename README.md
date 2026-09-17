@@ -124,7 +124,7 @@ pip install -e packages/core -r services/proxy/requirements.txt \
             -r services/api/requirements.txt pytest pytest-asyncio httpx
 pip install -e services/proxy
 
-pytest                          # 61 tests: core, proxy end-to-end, API
+pytest                          # 71 tests: core, proxy end-to-end, API
 cd web && npm install && npm run dev
 ```
 
@@ -136,12 +136,25 @@ Postgres (`DECRYPT0RX_TEST_DATABASE_URL`, default
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) — how a connection flows through the
-  system, and why each decision was made
-- [Operations](docs/OPERATIONS.md) — deployment, scaling, retention, upgrades,
-  troubleshooting
-- [Security](docs/SECURITY.md) — threat model, what the proxy protects, and
-  what it cannot
+Full documentation lives in **[docs/](docs/README.md)** — start there, it has
+reading paths for running, contributing and deploying.
+
+| | |
+| --- | --- |
+| [Getting started](docs/GETTING_STARTED.md) | Clone to your first decrypted request |
+| [Architecture](docs/ARCHITECTURE.md) | The connection lifecycle, and why each decision was made |
+| [Code tour](docs/CODE_TOUR.md) | What lives where, and where to change what |
+| [Configuration](docs/CONFIGURATION.md) | Every environment variable |
+| [API reference](docs/API.md) | Every endpoint and the role it needs |
+| [Testing](docs/TESTING.md) | How the suite works and how to add to it |
+| [Contributing](docs/CONTRIBUTING.md) | Workflow, conventions, review checklist |
+| [Operations](docs/OPERATIONS.md) | Scaling, retention, monitoring, troubleshooting |
+| [Security](docs/SECURITY.md) | Threat model and deployment guidance |
+| [Glossary](docs/GLOSSARY.md) | SNI, ALPN, pinning, flows, and the rest |
+
+New contributors: read [Getting started](docs/GETTING_STARTED.md), then
+[Architecture](docs/ARCHITECTURE.md), then
+[Contributing](docs/CONTRIBUTING.md).
 
 ## Known limits
 
