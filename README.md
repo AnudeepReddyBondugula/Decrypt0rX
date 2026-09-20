@@ -142,6 +142,8 @@ reading paths for running, contributing and deploying.
 | | |
 | --- | --- |
 | [Getting started](docs/GETTING_STARTED.md) | Clone to your first decrypted request |
+| [High-level design](docs/HLD.md) | What the parts are and how they fit, in plain English |
+| [Low-level design](docs/LLD.md) | Every call stack, from process start to shutdown |
 | [Architecture](docs/ARCHITECTURE.md) | The connection lifecycle, and why each decision was made |
 | [Code tour](docs/CODE_TOUR.md) | What lives where, and where to change what |
 | [Configuration](docs/CONFIGURATION.md) | Every environment variable |
@@ -153,7 +155,7 @@ reading paths for running, contributing and deploying.
 | [Glossary](docs/GLOSSARY.md) | SNI, ALPN, pinning, flows, and the rest |
 
 New contributors: read [Getting started](docs/GETTING_STARTED.md), then
-[Architecture](docs/ARCHITECTURE.md), then
+[HLD](docs/HLD.md) and [LLD](docs/LLD.md) to understand the code, then
 [Contributing](docs/CONTRIBUTING.md).
 
 ## Known limits
