@@ -9,12 +9,17 @@ from "what is this" to "I can ship a change".
 1. [Getting started](GETTING_STARTED.md) — clone to your first decrypted request
 2. [Glossary](GLOSSARY.md) — if `SNI`, `ALPN` or `pinning` are unfamiliar
 
+**I want to understand the system before touching code** — start here
+1. [High-level design](HLD.md) — what the parts are and how they fit, in plain English
+2. [Low-level design](LLD.md) — the actual call stacks, from startup to shutdown
+
 **I want to contribute code** — half a day
 1. [Getting started](GETTING_STARTED.md)
-2. [Architecture](ARCHITECTURE.md) — how a connection flows, and why
-3. [Code tour](CODE_TOUR.md) — what lives where, and where to change what
-4. [Testing](TESTING.md) — how the suite works and how to add to it
-5. [Contributing](CONTRIBUTING.md) — workflow and conventions
+2. [High-level design](HLD.md) then [Low-level design](LLD.md)
+3. [Architecture](ARCHITECTURE.md) — the reasoning behind each decision
+4. [Code tour](CODE_TOUR.md) — a quick file-to-purpose map
+5. [Testing](TESTING.md) — how the suite works and how to add to it
+6. [Contributing](CONTRIBUTING.md) — workflow and conventions
 
 **I want to deploy and run it** — a couple of hours
 1. [Getting started](GETTING_STARTED.md)
@@ -30,6 +35,8 @@ from "what is this" to "I can ship a change".
 
 | Document | Covers |
 | --- | --- |
+| [HLD.md](HLD.md) | High-level design: the three programs, the three stores, why the proxy never calls the API, what happens when each piece breaks |
+| [LLD.md](LLD.md) | Low-level design: every call stack from process start to shutdown, function by function, with file and line references |
 | [GETTING_STARTED.md](GETTING_STARTED.md) | Both setups (Docker and from source), your first intercepted request, common first-run problems |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The connection lifecycle step by step, design decisions and their reasoning, data model, concurrency model |
 | [CODE_TOUR.md](CODE_TOUR.md) | Every file and its job, plus "I want to change X, where do I look" |
